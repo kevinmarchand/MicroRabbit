@@ -1,4 +1,4 @@
-﻿using MediatR;
+﻿ using MediatR;
 using MicroRabbit.Domain.Core.Bus;
 using MicroRabbit.Domain.Core.Commands;
 using MicroRabbit.Domain.Core.Events;
@@ -109,15 +109,18 @@ namespace MicroRabbit.Infra.Bus
         {
             if (_handlers.ContainsKey(eventName))
             {
-                var subscriptions = _handlers[eventName];
-                foreach (var subcsiption in subscriptions)
+                using (var scope = _serviceScopeFactory.CreateScope())
                 {
-                    var handler = Activator.CreateInstance(subcsiption);
-                    if (handler == null) continue;
-                    var eventType = _eventTypes.SingleOrDefault(t => t.Name == eventName);
-                    var @event = JsonConvert.DeserializeObject(message, eventType);
-                    var concreteType = typeof(IEventHandler<>).MakeGenericType(eventType);
-                    await (Task)concreteType.GetMethod("Handle").Invoke(handler, new object[] { @event });
+                    var subscriptions = _handlers[eventName];
+                    foreach (var subcsiption in subscriptions)
+                    {
+                        var handler = scope.ServiceProvider.GetService(subcsiption);
+                        if (handler == null) continue;
+                        var eventType = _eventTypes.SingleOrDefault(t => t.Name == eventName);
+                        var @event = JsonConvert.DeserializeObject(message, eventType);
+                        var concreteType = typeof(IEventHandler<>).MakeGenericType(eventType);
+                        await (Task)concreteType.GetMethod("Handle").Invoke(handler, new object[] { @event });
+                    }
                 }
             }
         }
